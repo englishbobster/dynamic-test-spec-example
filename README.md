@@ -29,14 +29,24 @@ public static Scenario specification() {
 ./mvnw test
 ```
 
-Surefire's XML report names each test after its scenario:
+The console prints the results as a tree, with each scenario by name (from
+[maven-surefire-junit5-tree-reporter](https://github.com/fabriciorby/maven-surefire-junit5-tree-reporter), set up in
+`pom.xml`):
+
+```
+[INFO] ── stos.dynamictestspec.CartScenarioTest - 0.059 s
+[INFO]    └─ ┬─ cartScenarios() - 0.033 s
+[INFO]       ├─ ✔ EMPTY[] · adding an item opens the cart - 0.031 s
+[INFO]       ├─ ✔ OPEN[BOOK] · adding another item keeps the cart open - 0.001 s
+[INFO]       └─ ✔ EMPTY[] · removing an item from an empty cart is rejected - 0.001 s
+```
+
+Surefire's XML report uses the same names:
 
 ```sh
 grep -o '<testcase name="[^"]*"' target/surefire-reports/TEST-*CartScenarioTest.xml
 # <testcase name="cartScenarios() EMPTY[] · adding an item opens the cart"
 ```
-
-The Maven console shows only the index (`cartScenarios()[1]`). IntelliJ shows the full names.
 
 To see a failure, change `status(OPEN)` to `status(EMPTY)` in `EmptyCartAddItem` (import `CartStatus.EMPTY`) and
 run again:
@@ -56,16 +66,22 @@ Expected the cart to be EMPTY afterwards, but it was OPEN.
 | Path | What it holds |
 |---|---|
 | `src/main/java/stos/dynamictestspec/cart/` | The cart domain. Ordinary code that knows nothing about tests |
-| `src/test/java/stos/dynamictestspec/specifications/` | One class per scenario, data only |
+| `src/test/java/stos/dynamictestspec/specifications/` | One class per scenario, data only (`EmptyCartAddItem`, `OpenCartAddItem`, `EmptyCartRemoveItem`) |
 | `src/test/java/stos/dynamictestspec/CartScenarios.java` | What a scenario *is*: records and builder methods, no test logic |
 | `src/test/java/stos/dynamictestspec/CartScenarioTest.java` | What *runs* a scenario: the `@TestFactory`, the runner and the assertions |
 
 ### The cart domain
 
 - `Cart` is built from its event history (`new Cart(events)` or `Cart.emptyCart()`). `decide(command)` returns the
-  events a command produces, and `snapshot()` returns a read model.
-- `CartEvent` (`CartOpened`, `ItemAdded`) and `CartCommand` (`AddItem`) are sealed interfaces with records inside.
-- `CartService.handle(command)` loads the cart, appends the new events, and publishes a snapshot after each one.
+  events a command produces, and `snapshot()` returns a read model:
+  - adding an item to an empty cart opens it first (`CartOpened`, `ItemAdded`); adding to an open cart only adds the
+    item;
+  - removing an item from an empty cart produces no events. Removing from an open cart is not specified yet, so
+    `decide` throws "not yet".
+- `CartEvent` (`CartOpened`, `ItemAdded`) and `CartCommand` (`AddItem`, `RemoveItem`) are sealed interfaces with
+  records inside.
+- `CartService.handle(command)` loads the cart, appends the new events, and publishes a snapshot after each one. It
+  returns `SUCCEEDED`, or `REJECTED` when the command produces no events.
 - `CartEventStore` and `CartProjectionPublisher` are in-memory stand-ins for an event store and a message publisher.
 
 ### A scenario
@@ -74,9 +90,9 @@ Expected the cart to be EMPTY afterwards, but it was OPEN.
 
 - `Scenario(name, given, when, then)`
 - `Expectation` is a sealed interface. Each kind of check is a record: `ResultIs`, `StatusIs`, `NewEvents`,
-  `Projected`.
-- `scenario`, `given`, `when`, `then`, `result`, `status`, `newEvents` and `projected` only build these records, so
-  a specification reads like a sentence.
+  `Projected`, `NothingProjected`.
+- `scenario`, `given`, `when`, `then`, `result`, `status`, `newEvents`, `projected` and `nothingProjected` only build
+  these records, so a specification reads like a sentence.
 
 A start state can be a ready-made cart or a list of events:
 
@@ -115,6 +131,22 @@ given(new Cart(List.of(new CartOpened(), new ItemAdded(BOOK))))
   dynamic test, so a fresh store (or clock, or IDs) has to be created inside the runner.
 - **The runner is the only part that knows how to talk to the system.** The same specifications could run against
   an in-memory runner (fast) and a runner that drives a real service, for example a `@SpringBootTest`.
+- **The scenarios run as a flat list, with no `DynamicContainer`s.** Grouping them by command ("adding an item",
+  "removing an item") needs a `switch` over the domain's commands in the runner, so every new command would mean a
+  change to the test framework. The test names already say the start state and the scenario.
+
+## Dynamic containers in other domains
+
+`DynamicContainer`s are still worth knowing about if this approach is used elsewhere. They fit when the grouping
+comes from the test data or the test setup, not from the domain's own types, for example:
+
+- the same specifications run against several runners (in-memory and a real service), one container per runner;
+- specifications loaded from files, one container per file or feature;
+- one container per scenario, with one test per expectation, so a failure shows exactly which expectations broke.
+
+IntelliJ shows containers as a nested tree. The Maven console tree reporter (`maven-surefire-junit5-tree-reporter`
+2.2.0) does not: it builds its tree from classes and methods only, and prints everything below the
+`@TestFactory` method on one level.
 
 ## Ideas for next steps
 
@@ -122,8 +154,8 @@ given(new Cart(List.of(new CartOpened(), new ItemAdded(BOOK))))
   `TickAt(Instant)`, so a scenario like "an open cart with no activity for 24 hours is abandoned" can be written the
   same way. Name domain events, not transports: a `PubsubMessage(json)` trigger would put delivery details back into
   every specification.
-- **More scenarios.** `Cart.decide` always opens a new cart. A second scenario (add an item to an open cart) would
-  force it to check the current state.
+- **Remove an item from an open cart.** `Cart.decide` still throws "not yet" here. A scenario for it would add an
+  `ItemRemoved` event, and raise the question of what happens when the last item goes.
 - **Better failure messages.** Plain-language messages for every assert, with the scenario name in them.
 - **Soft assertions**, to see every mismatch in one run instead of only the first.
 - **Strict expectations.** Today a scenario checks only what it lists. Should anything it doesn't mention, such as an
