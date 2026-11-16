@@ -16,6 +16,7 @@ import stos.dynamictestspec.cart.CartResult;
 import stos.dynamictestspec.cart.CartService;
 import stos.dynamictestspec.cart.CartSnapshot;
 import stos.dynamictestspec.specifications.EmptyCartAddItem;
+import stos.dynamictestspec.specifications.OpenCartAddItem;
 
 import java.util.List;
 import java.util.stream.Stream;
@@ -26,7 +27,8 @@ import static org.junit.jupiter.api.DynamicTest.dynamicTest;
 class CartScenarioTest {
 
     private static final List<Scenario> SCENARIOS = List.of(
-            EmptyCartAddItem.specification()
+            EmptyCartAddItem.specification(),
+            OpenCartAddItem.specification()
     );
 
     @TestFactory

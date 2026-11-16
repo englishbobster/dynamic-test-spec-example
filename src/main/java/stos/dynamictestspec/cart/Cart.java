@@ -33,7 +33,9 @@ public final class Cart {
 
     public List<CartEvent> decide(CartCommand command) {
         return switch (command) {
-            case AddItem addItem -> List.of(new CartOpened(), new ItemAdded(addItem.product()));
+            case AddItem addItem when status == CartStatus.EMPTY ->
+                    List.of(new CartOpened(), new ItemAdded(addItem.product()));
+            case AddItem addItem -> List.of(new ItemAdded(addItem.product()));
         };
     }
 
