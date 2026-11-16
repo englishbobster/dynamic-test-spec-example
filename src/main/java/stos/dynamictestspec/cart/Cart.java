@@ -1,6 +1,7 @@
 package stos.dynamictestspec.cart;
 
 import stos.dynamictestspec.cart.CartCommand.AddItem;
+import stos.dynamictestspec.cart.CartCommand.RemoveItem;
 import stos.dynamictestspec.cart.CartEvent.CartOpened;
 import stos.dynamictestspec.cart.CartEvent.ItemAdded;
 
@@ -36,6 +37,8 @@ public final class Cart {
             case AddItem addItem when status == CartStatus.EMPTY ->
                     List.of(new CartOpened(), new ItemAdded(addItem.product()));
             case AddItem addItem -> List.of(new ItemAdded(addItem.product()));
+            case RemoveItem _ when status == CartStatus.EMPTY -> List.of();
+            case RemoveItem removeItem -> throw new UnsupportedOperationException("not yet: " + removeItem);
         };
     }
 

@@ -31,6 +31,9 @@ public final class CartScenarios {
     public record Projected(CartStatus expected) implements Expectation {
     }
 
+    public record NothingProjected() implements Expectation {
+    }
+
     public static Scenario scenario(String name, Cart given, CartCommand when, List<Expectation> then) {
         return new Scenario(name, given, when, then);
     }
@@ -62,5 +65,9 @@ public final class CartScenarios {
 
     public static Expectation projected(CartStatus expected) {
         return new Projected(expected);
+    }
+
+    public static Expectation nothingProjected() {
+        return new NothingProjected();
     }
 }

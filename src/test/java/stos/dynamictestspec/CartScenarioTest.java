@@ -4,6 +4,7 @@ import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.TestFactory;
 import stos.dynamictestspec.CartScenarios.Expectation;
 import stos.dynamictestspec.CartScenarios.NewEvents;
+import stos.dynamictestspec.CartScenarios.NothingProjected;
 import stos.dynamictestspec.CartScenarios.Projected;
 import stos.dynamictestspec.CartScenarios.ResultIs;
 import stos.dynamictestspec.CartScenarios.Scenario;
@@ -16,6 +17,7 @@ import stos.dynamictestspec.cart.CartResult;
 import stos.dynamictestspec.cart.CartService;
 import stos.dynamictestspec.cart.CartSnapshot;
 import stos.dynamictestspec.specifications.EmptyCartAddItem;
+import stos.dynamictestspec.specifications.EmptyCartRemoveItem;
 import stos.dynamictestspec.specifications.OpenCartAddItem;
 
 import java.util.List;
@@ -28,7 +30,8 @@ class CartScenarioTest {
 
     private static final List<Scenario> SCENARIOS = List.of(
             EmptyCartAddItem.specification(),
-            OpenCartAddItem.specification()
+            OpenCartAddItem.specification(),
+            EmptyCartRemoveItem.specification()
     );
 
     @TestFactory
@@ -63,6 +66,7 @@ class CartScenarioTest {
             case StatusIs expected -> assertStatus(expected, actual);
             case NewEvents expected -> assertNewEvents(expected, actual);
             case Projected expected -> assertProjected(expected, actual);
+            case NothingProjected _ -> assertNothingProjected(actual);
         }
     }
 
@@ -88,6 +92,12 @@ class CartScenarioTest {
         assertThat(actual.published().getLast().status())
                 .as("last projection")
                 .isEqualTo(expected.expected());
+    }
+
+    private static void assertNothingProjected(Outcome actual) {
+        assertThat(actual.published())
+                .withFailMessage("Expected nothing to be published, but got %s.", actual.published())
+                .isEmpty();
     }
 
     private record Outcome(CartResult result, Cart cart, List<CartEvent> newEvents, List<CartSnapshot> published) {
